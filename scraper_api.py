@@ -85,7 +85,7 @@ def scrape():
 
     except Exception as e:
         return jsonify({'error': str(e)})
-
+ 
     finally:
         driver.quit()
 
