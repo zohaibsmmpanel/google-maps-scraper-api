@@ -5,15 +5,19 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 import time
 import os
+
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # ✅ This line enables full cross-origin access
 
 @app.route('/')
 def home():
-    return jsonify({"status": "API is live. Use POST /scrape with {query}"}), 200
+    return jsonify({"status": "API is live. Use POST /scrape with {query}"})
 
-@app.route('/scrape', methods=['POST'])
+@app.route('/scrape', methods=['POST', 'OPTIONS'])  # ✅ Added OPTIONS method
 def scrape():
+    if request.method == 'OPTIONS':
+        return '', 204  # ✅ Preflight response
+
     query = request.json.get('query')
     if not query:
         return jsonify({'error': 'Missing query'}), 400
@@ -26,23 +30,19 @@ def scrape():
     options.add_argument('--window-size=1920,1080')
 
     driver = webdriver.Chrome(options=options)
-
     results = []
 
     try:
         driver.get("https://www.google.com/maps")
         time.sleep(5)
 
-        # Search the query
         search_box = driver.find_element(By.ID, "searchboxinput")
         search_btn = driver.find_element(By.ID, "searchbox-searchbutton")
         search_box.send_keys(query)
         search_btn.click()
         time.sleep(7)
 
-        # Scroll to load listings
-        scrollable_div_xpath = '//div[@role="feed"]'
-        scrollable = driver.find_element(By.XPATH, scrollable_div_xpath)
+        scrollable = driver.find_element(By.XPATH, '//div[@role="feed"]')
         last_height = 0
         stuck_count = 0
 
@@ -69,8 +69,7 @@ def scrape():
                     phone = el.find_element(By.CLASS_NAME, "UsdlK").text
                 except:
                     pass
-
-                maps_link = el.find_element(By.TAG_NAME, "a").get_attribute("href")
+                maps_link = el.find_element(By.TAG_NAME, "a").getAttribute("href")
 
                 results.append({
                     'name': name,
@@ -78,19 +77,16 @@ def scrape():
                     'phone': phone,
                     'maps_link': maps_link
                 })
-
-            except Exception as e:
+            except:
                 continue
 
         return jsonify(results)
 
     except Exception as e:
         return jsonify({'error': str(e)})
- 
     finally:
         driver.quit()
 
-# ✅ Required for Render deployment
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
